@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>六级核心象义 · 语境背词</title>
+    <style>
+        :root { --bg: #f5f7fa; --card-bg: #ffffff; --text-main: #2c3e50; --text-sub: #7f8c8d; --accent: #3498db; --output-color: #e74c3c; --input-color: #27ae60; --core-color: #8e44ad; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .header { background: var(--card-bg); padding: 15px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10; }
+        .header h1 { margin: 0; font-size: 20px; color: var(--accent); }
+        .legend { display: flex; gap: 15px; font-size: 13px; margin-top: 10px; }
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .dot-out { background: var(--output-color); }
+        .dot-in { background: var(--input-color); }
+        .dot-core { background: var(--core-color); }
+
+        .feed { flex-grow: 1; overflow-y: auto; padding: 20px; padding-bottom: 80px; box-sizing: border-box; }
+        
+        .story-card { background: var(--card-bg); border-radius: 16px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+        .story-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block; }
+        .story-content { font-size: 16px; line-height: 1.8; color: #34495e; }
+        
+        /* 词汇样式 */
+        .word-out { color: var(--output-color); font-weight: bold; cursor: pointer; border-bottom: 1px dashed var(--output-color); transition: 0.2s; }
+        .word-in { color: var(--input-color); font-weight: bold; cursor: pointer; border-bottom: 1px dashed var(--input-color); transition: 0.2s; }
+        .word-core { color: var(--core-color); font-weight: bold; cursor: pointer; border-bottom: 1px dashed var(--core-color); transition: 0.2s; }
+        
+        /* 释义弹窗（内联显示） */
+        .meaning-tooltip { display: none; background: #f8f9fa; border-left: 4px solid var(--accent); padding: 10px 15px; margin: 10px 0; border-radius: 0 8px 8px 0; font-size: 14px; color: var(--text-sub); animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 底部导航 */
+        .nav { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card-bg); display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; text-align: center; padding: 15px 0; font-size: 15px; color: var(--text-sub); cursor: pointer; font-weight: bold; }
+        .nav-item.active { color: var(--accent); }
+
+        /* 导入弹窗 */
+        #import-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 90%; max-width: 500px; padding: 20px; border-radius: 16px; box-sizing: border-box; }
+        .modal-content h3 { margin-top: 0; font-size: 18px; }
+        .modal-content p { font-size: 12px; color: #666; margin-bottom: 10px; line-height: 1.5; background: #f9f9f9; padding: 8px; border-radius: 6px;}
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 14px; margin-bottom: 5px; font-weight: bold; }
+        .input-group input, .input-group textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 14px; }
+        .input-group textarea { height: 180px; resize: none; font-family: monospace; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background: #eee; color: #333; }
+        .btn-confirm { background: var(--accent); color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>六级核心象义 · 语境背词</h1>
+        <div class="legend">
+            <span><span class="dot dot-out"></span> 输出词（会拼写）</span>
+            <span><span class="dot dot-in"></span> 认读词（眼熟即可）</span>
+            <span><span class="dot dot-core"></span> 核心义（多义词）</span>
+        </div>
+    </div>
+
+    <div class="feed" id="feed-container"></div>
+
+    <!-- 底部导航 -->
+    <div class="nav">
+        <div class="nav-item active" onclick="switchView('read')">刷故事</div>
+        <div class="nav-item" onclick="switchView('import')">导入故事</div>
+    </div>
+
+    <!-- 导入弹窗 -->
+    <div id="import-modal">
+        <div class="modal-content">
+            <h3>📥 导入新故事</h3>
+            <p><b>标记格式：</b><br>
+            🔴 输出词：<code>{out:英文|释义}</code><br>
+            🟢 认读词：<code>{in:英文|释义}</code><br>
+            💡 核心义：<code>{core:英文|释义}</code><br>
+            （直接粘贴我发给你的带格式文本即可）</p>
+            
+            <div class="input-group">
+                <label>故事标题</label>
+                <input type="text" id="story-title" placeholder="例如：Day 04 The Environment">
+            </div>
+            
+            <div class="input-group">
+                <label>故事正文（带标记）</label>
+                <textarea id="story-content" placeholder="Climate change is a {out:major|主要的} issue..."></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-cancel" onclick="closeImport()">取消</button>
+                <button class="btn btn-confirm" onclick="doImport()">一键导入</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 默认初始数据
+        const defaultStories = [
+            {
+                title: 'Day 03: AI and the Future of Work',
+                content: 'Recently, a {in:major|adj. 主要的} {out:technology|n. 技术} company did a {out:survey|n. 调查} on {out:artificial intelligence|n. 人工智能}. They wanted to {out:prove|v. 证明} how AI would {out:affect|v. 影响} the {in:global|adj. 全球的} {out:economy|n. 经济}. The {out:result|n. 结果} showed a {in:complex|adj. 复杂的} picture. {core:Addressing|核心义：引导/指向 → 解决、应对} this {out:issue|n. 问题} is {in:crucial|adj. 至关重要的}. We need to {out:adapt|v. 适应} to the new {out:environment|n. 环境}.'
+            }
+        ];
+
+        // 获取本地存储的故事，如果没有则用默认
+        let stories = JSON.parse(localStorage.getItem('cet6_stories')) || defaultStories;
+
+        // 核心解析函数：将 {out:英文|释义} 转换为 HTML 标签
+        function parseStoryContent(text) {
+            let html = text;
+            // 替换输出词
+            html = html.replace(/\{out:([^|]+)\|([^}]+)\}/g, '<span class="word-out" data-meaning="$2">$1</span>');
+            // 替换认读词
+            html = html.replace(/\{in:([^|]+)\|([^}]+)\}/g, '<span class="word-in" data-meaning="$2">$1</span>');
+            // 替换核心义
+            html = html.replace(/\{core:([^|]+)\|([^}]+)\}/g, '<span class="word-core" data-meaning="$2">$1</span>');
+            return html;
+        }
+
+        // 渲染故事流
+        function renderFeed() {
+            const container = document.getElementById('feed-container');
+            container.innerHTML = '';
+            
+            if (stories.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">暂无故事，点击底部“导入故事”添加吧~</div>';
+                return;
+            }
+
+            // 倒序渲染（新导入的在上方）
+            [...stories].reverse().forEach(story => {
+                const card = document.createElement('div');
+                card.className = 'story-card';
+                
+                const parsedContent = parseStoryContent(story.content);
+                
+                card.innerHTML = `
+                    <div class="story-title">${story.title}</div>
+                    <div class="story-content">${parsedContent}</div>
+                    <div class="meaning-tooltip"></div>
+                `;
+                container.appendChild(card);
+            });
+
+            // 重新绑定点击事件
+            document.querySelectorAll('.word-out, .word-in, .word-core').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const meaning = this.getAttribute('data-meaning');
+                    const parentCard = this.closest('.story-card');
+                    const tip = parentCard.querySelector('.meaning-tooltip');
+                    
+                    if (tip.style.display === 'block' && tip.dataset.word === this.innerText) {
+                        tip.style.display = 'none';
+                    } else {
+                        tip.innerText = meaning;
+                        tip.dataset.word = this.innerText;
+                        tip.style.display = 'block';
+                    }
+                });
+            });
+        }
+
+        // 页面切换控制
+        function switchView(view) {
+            if (view === 'import') {
+                document.getElementById('import-modal').style.display = 'flex';
+            }
+        }
+
+        function closeImport() {
+            document.getElementById('import-modal').style.display = 'none';
+            document.getElementById('story-title').value = '';
+            document.getElementById('story-content').value = '';
+        }
+
+        // 执行导入
+        function doImport() {
+            const title = document.getElementById('story-title').value.trim();
+            const content = document.getElementById('story-content').value.trim();
+            
+            if (!title || !content) {
+                return alert('标题和正文不能为空哦！');
+            }
+
+            // 存入数组
+            stories.push({ title, content });
+            
+            // 保存到本地
+            localStorage.setItem('cet6_stories', JSON.stringify(stories));
+            
+            // 刷新页面数据
+            closeImport();
+            renderFeed();
+            alert('✅ 导入成功！');
+        }
+
+        // 初始化
+        renderFeed();
+    </script>
+</body>
+</html>
